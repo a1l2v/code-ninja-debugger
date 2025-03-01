@@ -5,7 +5,7 @@ import CodeEditor from '../components/CodeEditor';
 import DebugResults from '../components/DebugResults';
 import { useAuth } from '../contexts/AuthContext';
 import { debugCode } from '../services/api';
-import { toast } from '@/components/ui/sonner';
+import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Code, GitBranch, Sparkles } from 'lucide-react';
