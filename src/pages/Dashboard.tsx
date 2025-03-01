@@ -25,11 +25,14 @@ const Dashboard: React.FC = () => {
 
   const handleDebug = async (code: string) => {
     setIsLoading(true);
+    setResults(null); // Clear previous results
+    
     try {
       const response = await debugCode(code);
       setResults(response.data);
+      toast.success('Code successfully debugged!');
     } catch (error) {
-      toast.error('Failed to debug code. Please try again.');
+      toast.error('Failed to debug code: ' + (error instanceof Error ? error.message : 'Unknown error'));
       console.error(error);
     } finally {
       setIsLoading(false);
@@ -57,7 +60,7 @@ const Dashboard: React.FC = () => {
             </h1>
             
             <p className="text-muted-foreground max-w-3xl">
-              Paste your code below and let our AI find and fix issues for you. Powered by the Qwen2.5-Coder-32B-Instruct model.
+              Paste your code below and let our AI find and fix issues for you. Powered by the Nebius AI Qwen2.5-Coder-32B-Instruct model.
             </p>
           </div>
           
