@@ -3,16 +3,22 @@ import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import CodeEditor from '../components/CodeEditor';
 import DebugResults from '../components/DebugResults';
+import DebugHistory from '../components/DebugHistory';
 import { useAuth } from '../contexts/AuthContext';
-import { debugCode } from '../services/api';
+import { debugCode, saveDebugHistory, getDebugHistory, DebugHistoryItem } from '../services/api';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
-import { Code, GitBranch, Sparkles } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Code, GitBranch, History, Sparkles } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
   const [results, setResults] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [code, setCode] = useState<string>('');
+  const [historyItems, setHistoryItems] = useState<DebugHistoryItem[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('editor');
   const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -23,13 +29,41 @@ const Dashboard: React.FC = () => {
     }
   }, [user, authLoading, navigate]);
 
-  const handleDebug = async (code: string) => {
+  // Load debug history when component mounts
+  useEffect(() => {
+    if (user) {
+      loadDebugHistory();
+    }
+  }, [user]);
+
+  const loadDebugHistory = async () => {
+    try {
+      setIsHistoryLoading(true);
+      const history = await getDebugHistory();
+      setHistoryItems(history);
+    } catch (error) {
+      console.error('Failed to load debug history:', error);
+      toast.error('Failed to load debug history');
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  };
+
+  const handleDebug = async (codeToDebug: string) => {
     setIsLoading(true);
     setResults(null); // Clear previous results
+    setCode(codeToDebug);
     
     try {
-      const response = await debugCode(code);
+      const response = await debugCode(codeToDebug);
       setResults(response.data);
+      
+      // Save to history
+      await saveDebugHistory(codeToDebug, response.data);
+      
+      // Reload history
+      await loadDebugHistory();
+      
       toast.success('Code successfully debugged!');
     } catch (error) {
       toast.error('Failed to debug code: ' + (error instanceof Error ? error.message : 'Unknown error'));
@@ -37,6 +71,12 @@ const Dashboard: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSelectHistoryItem = (item: DebugHistoryItem) => {
+    setCode(item.code);
+    setResults(item.result);
+    setActiveTab('editor');
   };
 
   if (authLoading) {
@@ -72,10 +112,31 @@ const Dashboard: React.FC = () => {
             </p>
           </div>
           
-          <div className="grid grid-cols-1 gap-6">
-            <CodeEditor onDebug={handleDebug} isLoading={isLoading} />
-            <DebugResults results={results} isLoading={isLoading} />
-          </div>
+          <Tabs defaultValue="editor" value={activeTab} onValueChange={setActiveTab}>
+            <TabsList>
+              <TabsTrigger value="editor">
+                <Code className="h-4 w-4 mr-2" />
+                Code Editor
+              </TabsTrigger>
+              <TabsTrigger value="history">
+                <History className="h-4 w-4 mr-2" />
+                History
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="editor" className="space-y-6">
+              <CodeEditor onDebug={handleDebug} isLoading={isLoading} initialCode={code} />
+              <DebugResults results={results} isLoading={isLoading} />
+            </TabsContent>
+            
+            <TabsContent value="history">
+              <DebugHistory 
+                history={historyItems} 
+                isLoading={isHistoryLoading} 
+                onSelectSession={handleSelectHistoryItem}
+              />
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
       
