@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import CodeEditor from '../components/CodeEditor';
 import DebugResults from '../components/DebugResults';
@@ -13,15 +13,15 @@ import { Code, GitBranch, Sparkles } from 'lucide-react';
 const Dashboard: React.FC = () => {
   const [results, setResults] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   // Redirect if not logged in
-  React.useEffect(() => {
-    if (!user) {
+  useEffect(() => {
+    if (!authLoading && !user) {
       navigate('/login');
     }
-  }, [user, navigate]);
+  }, [user, authLoading, navigate]);
 
   const handleDebug = async (code: string) => {
     setIsLoading(true);
@@ -38,6 +38,14 @@ const Dashboard: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   if (!user) {
     return null; // Don't render anything while redirecting
