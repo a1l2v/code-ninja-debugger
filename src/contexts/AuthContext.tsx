@@ -1,13 +1,19 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Session, User } from '@supabase/supabase-js';
+import { toast } from 'sonner';
 
-interface User {
+interface UserProfile {
   id: string;
   email: string;
+  username?: string;
+  avatar_url?: string;
 }
 
 interface AuthContextType {
-  user: User | null;
+  user: UserProfile | null;
+  session: Session | null;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -25,44 +31,91 @@ export const useAuth = () => {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check if user is already logged in
+  // Initialize session and user on load
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
+    const setupAuth = async () => {
+      setIsLoading(true);
+      
+      // Get current session
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      setSession(currentSession);
+      
+      // Set user if session exists
+      if (currentSession?.user) {
+        const { id, email } = currentSession.user;
+        
+        // Get user profile from the profiles table
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('username, avatar_url')
+          .eq('id', id)
+          .single();
+          
+        setUser({
+          id,
+          email: email || '',
+          username: profile?.username,
+          avatar_url: profile?.avatar_url
+        });
+      }
+      
+      setIsLoading(false);
+      
+      // Listen for auth changes
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+        setSession(newSession);
+        
+        if (newSession?.user) {
+          const { id, email } = newSession.user;
+          
+          // Get user profile from the profiles table
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('username, avatar_url')
+            .eq('id', id)
+            .single();
+            
+          setUser({
+            id,
+            email: email || '',
+            username: profile?.username,
+            avatar_url: profile?.avatar_url
+          });
+        } else {
+          setUser(null);
+        }
+        
+        setIsLoading(false);
+      });
+      
+      // Cleanup subscription on unmount
+      return () => {
+        subscription.unsubscribe();
+      };
+    };
+    
+    setupAuth();
   }, []);
 
   // Login function
   const login = async (email: string, password: string) => {
-    // In a real app, you would make an API call here
-    // For demo purposes, we'll simulate a successful login
     setIsLoading(true);
     
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
       
-      // Simple validation
-      if (email.trim() === '' || password.trim() === '') {
-        throw new Error('Email and password are required');
-      }
+      if (error) throw error;
       
-      if (password.length < 6) {
-        throw new Error('Password must be at least 6 characters');
-      }
-      
-      // Create a mock user
-      const newUser = { id: '1', email };
-      
-      // Save to localStorage
-      localStorage.setItem('user', JSON.stringify(newUser));
-      setUser(newUser);
-      
+    } catch (error: any) {
+      toast.error(error.message || 'Login failed');
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -70,29 +123,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Register function
   const register = async (email: string, password: string) => {
-    // In a real app, you would make an API call here
     setIsLoading(true);
     
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
       
-      // Simple validation
-      if (email.trim() === '' || password.trim() === '') {
-        throw new Error('Email and password are required');
-      }
+      if (error) throw error;
       
-      if (password.length < 6) {
-        throw new Error('Password must be at least 6 characters');
-      }
-      
-      // Create a mock user
-      const newUser = { id: '1', email };
-      
-      // Save to localStorage
-      localStorage.setItem('user', JSON.stringify(newUser));
-      setUser(newUser);
-      
+    } catch (error: any) {
+      toast.error(error.message || 'Registration failed');
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -103,20 +146,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
       
-      // Remove from localStorage
-      localStorage.removeItem('user');
-      setUser(null);
-      
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to log out');
+      console.error('Error logging out:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, session, login, register, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -27,11 +28,12 @@ const AuthForm: React.FC<AuthFormProps> = ({ type }) => {
         toast.success('Successfully logged in');
       } else {
         await register(email, password);
-        toast.success('Account created successfully');
+        toast.success('Account created successfully. Check your email for verification.');
       }
       navigate('/dashboard');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Authentication failed');
+      // Error is already handled in the auth context with toast
+      console.error('Authentication error:', error);
     } finally {
       setIsLoading(false);
     }
