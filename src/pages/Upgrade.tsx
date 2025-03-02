@@ -1,51 +1,25 @@
 
 import React, { useEffect, useState } from 'react';
-import Navbar from '../components/Navbar';
-import { getSubscriptionPlans, createSubscription, verifySubscription, SubscriptionPlan } from '../services/api';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Crown, Star } from 'lucide-react';
-import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
-
-declare global {
-  interface Window {
-    Razorpay: any;
-  }
-}
+import Navbar from '../components/Navbar';
+import SubscriptionPlans from '../components/subscription/SubscriptionPlans';
+import RazorpayPayment from '../components/subscription/RazorpayPayment';
+import { getSubscriptionPlans, SubscriptionPlan } from '../services/api';
 
 const Upgrade: React.FC = () => {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [razorpayLoaded, setRazorpayLoaded] = useState(false);
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
-
-  useEffect(() => {
-    // Add Razorpay script
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.async = true;
-    script.onload = () => {
-      console.log("✅ Razorpay script loaded successfully.");
-      setRazorpayLoaded(true);
-    };
-    script.onerror = () => {
-      console.error("❌ Failed to load Razorpay script.");
-      toast.error("Payment service couldn't be loaded. Please try again later.");
-    };
-    document.body.appendChild(script);
-
-    // Cleanup
-    return () => {
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
-    };
-  }, []);
+  
+  // Custom hook for Razorpay integration
+  const { handleUpgrade, razorpayLoaded } = RazorpayPayment({
+    onProcessingChange: setIsProcessing,
+    isProcessing
+  });
 
   // Redirect if not logged in
   useEffect(() => {
@@ -72,83 +46,6 @@ const Upgrade: React.FC = () => {
       fetchPlans();
     }
   }, [user]);
-
-  const handleUpgrade = async (planId: string) => {
-    try {
-      if (!razorpayLoaded) {
-        console.error('Razorpay SDK not loaded yet');
-        toast.error('Payment service is not ready. Please try again in a moment.');
-        return;
-      }
-
-      setIsProcessing(true);
-      
-      // Create subscription on server
-      const { key, subscription } = await createSubscription(planId);
-      console.log('Subscription created:', subscription);
-      console.log('Razorpay key:', key);
-      
-      if (!key || !subscription || !subscription.id) {
-        console.error('Invalid response from create subscription API');
-        toast.error('Failed to initiate payment process. Please try again later.');
-        setIsProcessing(false);
-        return;
-      }
-      
-      // Initialize Razorpay with a proper try-catch
-      try {
-        const options = {
-          key,
-          subscription_id: subscription.id,
-          name: 'CodeDebugAI',
-          description: 'Subscription Payment',
-          prefill: {
-            email: user?.email || '',
-          },
-          theme: {
-            color: '#7c3aed',
-          },
-          modal: {
-            ondismiss: function() {
-              toast.error('Payment cancelled');
-              setIsProcessing(false);
-            },
-          },
-          handler: async function(response: any) {
-            try {
-              console.log('Payment successful, verifying...', response);
-              // Verify subscription
-              const result = await verifySubscription(subscription.id);
-              
-              if (result.success) {
-                toast.success(`Successfully upgraded to ${result.plan.replace('_', ' ')} plan!`);
-                navigate('/dashboard');
-              } else {
-                toast.error('Failed to verify payment');
-              }
-            } catch (error) {
-              console.error('Verification failed:', error);
-              toast.error('Failed to verify payment');
-            } finally {
-              setIsProcessing(false);
-            }
-          }
-        };
-        
-        console.log('🛠 Initializing Razorpay Checkout...');
-        const razor = new window.Razorpay(options);
-        razor.open();
-      } catch (error) {
-        console.error('Failed to initialize Razorpay:', error);
-        toast.error('Payment service initialization failed. Please try again later.');
-        setIsProcessing(false);
-      }
-    } catch (error) {
-      console.error('Failed to initiate upgrade:', error);
-      toast.error('Failed to initiate payment process');
-      setIsProcessing(false);
-    }
-  };
 
   if (authLoading || !user) {
     return (
@@ -188,141 +85,10 @@ const Upgrade: React.FC = () => {
               ))}
             </div>
           ) : (
-            <div className="grid gap-8 md:grid-cols-3">
-              {/* Free Plan */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    Free Plan
-                  </CardTitle>
-                  <CardDescription>
-                    <div className="text-2xl font-bold">
-                      ₹0 <span className="text-sm font-normal">/ month</span>
-                    </div>
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2 mb-6">
-                    <li className="flex items-center gap-2 text-sm">
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      <span>5 debugs per day</span>
-                    </li>
-                    <li className="flex items-center gap-2 text-sm">
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      <span>Basic code analysis</span>
-                    </li>
-                    <li className="flex items-center gap-2 text-sm">
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      <span>Save debug history</span>
-                    </li>
-                  </ul>
-                </CardContent>
-                <CardFooter>
-                  <Button variant="outline" className="w-full" disabled>
-                    Current Plan
-                  </Button>
-                </CardFooter>
-              </Card>
-              
-              {/* Pro Plan */}
-              <Card className="border-primary/50 shadow-md relative overflow-hidden">
-                <div className="absolute top-0 right-0 m-2">
-                  <Badge className="bg-primary">
-                    <Star className="h-3 w-3 mr-1 fill-primary-foreground" />
-                    Popular
-                  </Badge>
-                </div>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Star className="h-5 w-5 text-primary" />
-                    Pro Plan
-                  </CardTitle>
-                  <CardDescription>
-                    <div className="text-2xl font-bold">
-                      ₹99 <span className="text-sm font-normal">/ month</span>
-                    </div>
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2 mb-6">
-                    <li className="flex items-center gap-2 text-sm">
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      <span>200 debugs per month</span>
-                    </li>
-                    <li className="flex items-center gap-2 text-sm">
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      <span>Advanced code analysis</span>
-                    </li>
-                    <li className="flex items-center gap-2 text-sm">
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      <span>Premium support</span>
-                    </li>
-                    <li className="flex items-center gap-2 text-sm">
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      <span>Save and organize debug history</span>
-                    </li>
-                  </ul>
-                </CardContent>
-                <CardFooter>
-                  <Button 
-                    className="w-full" 
-                    onClick={() => handleUpgrade('pro')}
-                    disabled={isProcessing || !razorpayLoaded}
-                  >
-                    {isProcessing ? 'Processing...' : 'Upgrade to Pro'}
-                  </Button>
-                </CardFooter>
-              </Card>
-              
-              {/* Pro Plus Plan */}
-              <Card className="border-primary/20 relative overflow-hidden">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Crown className="h-5 w-5 text-yellow-500" />
-                    Pro Plus Plan
-                  </CardTitle>
-                  <CardDescription>
-                    <div className="text-2xl font-bold">
-                      ₹149 <span className="text-sm font-normal">/ month</span>
-                    </div>
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2 mb-6">
-                    <li className="flex items-center gap-2 text-sm">
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      <span>Unlimited debugs</span>
-                    </li>
-                    <li className="flex items-center gap-2 text-sm">
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      <span>Top priority in queue</span>
-                    </li>
-                    <li className="flex items-center gap-2 text-sm">
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      <span>Premium support with faster response</span>
-                    </li>
-                    <li className="flex items-center gap-2 text-sm">
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      <span>Early access to new features</span>
-                    </li>
-                    <li className="flex items-center gap-2 text-sm">
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      <span>Advanced dashboard with analytics</span>
-                    </li>
-                  </ul>
-                </CardContent>
-                <CardFooter>
-                  <Button 
-                    variant="outline" 
-                    className="w-full"
-                    onClick={() => handleUpgrade('pro_plus')}
-                    disabled={isProcessing || !razorpayLoaded}
-                  >
-                    {isProcessing ? 'Processing...' : 'Upgrade to Pro Plus'}
-                  </Button>
-                </CardFooter>
-              </Card>
-            </div>
+            <SubscriptionPlans 
+              isProcessing={isProcessing} 
+              onUpgrade={handleUpgrade} 
+            />
           )}
         </div>
       </main>
