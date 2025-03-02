@@ -48,23 +48,25 @@ const subscriptionPlans: Record<string, SubscriptionPlan> = {
   pro: {
     id: 'pro',
     name: 'Pro Plan',
-    amount: 99900, // 999 INR in paise
+    amount: 9900, // 99 INR in paise
     currency: 'INR',
     description: 'Up to 200 debugs per month',
-    razorpay_plan_id: '' // Set this up in the Razorpay Dashboard and add it here
+    razorpay_plan_id: 'plan_N0qZI9NHb1bvX7' // Replace with your actual plan ID
   },
   pro_plus: {
     id: 'pro_plus',
     name: 'Pro Plus Plan',
-    amount: 149900, // 1499 INR in paise
+    amount: 14900, // 149 INR in paise
     currency: 'INR',
     description: 'Unlimited debugs',
-    razorpay_plan_id: '' // Set this up in the Razorpay Dashboard and add it here
+    razorpay_plan_id: 'plan_N0qZQRcK9ZmFlz' // Replace with your actual plan ID
   }
 }
 
 // Helper functions to interact with Razorpay
 async function createRazorpayCustomer(name: string, email: string): Promise<RazorpayCustomer> {
+  console.log(`Creating Razorpay customer for ${email}`);
+  
   const response = await fetch(`${RAZORPAY_API_URL}/customers`, {
     method: 'POST',
     headers: {
@@ -76,10 +78,13 @@ async function createRazorpayCustomer(name: string, email: string): Promise<Razo
 
   if (!response.ok) {
     const error = await response.json();
+    console.error('Razorpay customer creation failed:', error);
     throw new Error(`Failed to create customer: ${JSON.stringify(error)}`);
   }
 
-  return await response.json();
+  const customer = await response.json();
+  console.log('Razorpay customer created:', customer);
+  return customer;
 }
 
 async function createRazorpaySubscription(
@@ -87,6 +92,8 @@ async function createRazorpaySubscription(
   customerId: string, 
   totalCount: number = 12 // Default subscription period in months
 ): Promise<RazorpaySubscription> {
+  console.log(`Creating Razorpay subscription for plan ${planId} and customer ${customerId}`);
+  
   const response = await fetch(`${RAZORPAY_API_URL}/subscriptions`, {
     method: 'POST',
     headers: {
@@ -103,13 +110,18 @@ async function createRazorpaySubscription(
 
   if (!response.ok) {
     const error = await response.json();
+    console.error('Razorpay subscription creation failed:', error);
     throw new Error(`Failed to create subscription: ${JSON.stringify(error)}`);
   }
 
-  return await response.json();
+  const subscription = await response.json();
+  console.log('Razorpay subscription created:', subscription);
+  return subscription;
 }
 
 async function getRazorpaySubscription(subscriptionId: string): Promise<RazorpaySubscription> {
+  console.log(`Getting Razorpay subscription ${subscriptionId}`);
+  
   const response = await fetch(`${RAZORPAY_API_URL}/subscriptions/${subscriptionId}`, {
     method: 'GET',
     headers: {
@@ -120,10 +132,13 @@ async function getRazorpaySubscription(subscriptionId: string): Promise<Razorpay
 
   if (!response.ok) {
     const error = await response.json();
+    console.error('Razorpay subscription retrieval failed:', error);
     throw new Error(`Failed to get subscription: ${JSON.stringify(error)}`);
   }
 
-  return await response.json();
+  const subscription = await response.json();
+  console.log('Razorpay subscription details:', subscription);
+  return subscription;
 }
 
 serve(async (req) => {
@@ -139,7 +154,9 @@ serve(async (req) => {
   let body;
   try {
     body = await req.json();
+    console.log('Request body:', body);
   } catch (error) {
+    console.error('Invalid request body:', error);
     return new Response(JSON.stringify({ error: 'Invalid request body' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,
@@ -147,10 +164,12 @@ serve(async (req) => {
   }
 
   const { action } = body;
+  console.log(`Processing action: ${action}`);
 
   // Get the user from the request
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
+    console.error('Missing authorization header');
     return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 401,
@@ -161,15 +180,19 @@ serve(async (req) => {
   const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
   if (authError || !user) {
+    console.error('Authentication error:', authError);
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 401,
     });
   }
 
+  console.log(`Authenticated user: ${user.id} (${user.email})`);
+
   // Handle different actions
   try {
     if (action === 'get_plans') {
+      console.log('Returning subscription plans');
       return new Response(
         JSON.stringify({ plans: Object.values(subscriptionPlans) }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -181,9 +204,30 @@ serve(async (req) => {
       const plan = subscriptionPlans[planId];
       
       if (!plan) {
+        console.error(`Invalid plan: ${planId}`);
         return new Response(JSON.stringify({ error: 'Invalid plan' }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 400,
+        });
+      }
+
+      console.log(`Creating subscription for plan: ${planId}`);
+
+      // Validate Razorpay configuration
+      if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+        console.error('Missing Razorpay credentials');
+        return new Response(JSON.stringify({ error: 'Payment service not configured properly' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        });
+      }
+
+      // Validate plan ID configuration
+      if (!plan.razorpay_plan_id) {
+        console.error(`Missing Razorpay plan ID for ${planId}`);
+        return new Response(JSON.stringify({ error: 'Subscription plan not configured properly' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
         });
       }
 
@@ -195,6 +239,7 @@ serve(async (req) => {
         .single();
 
       if (userError) {
+        console.error(`Failed to get user details: ${userError.message}`);
         throw new Error(`Failed to get user details: ${userError.message}`);
       }
 
@@ -208,11 +253,12 @@ serve(async (req) => {
       let customerId;
 
       if (subscription?.razorpay_customer_id) {
+        console.log(`Using existing Razorpay customer: ${subscription.razorpay_customer_id}`);
         customerId = subscription.razorpay_customer_id;
       } else {
         // Create new customer in Razorpay
         const customer = await createRazorpayCustomer(
-          userData.username || user.email || 'User',
+          userData?.username || user.email || 'User',
           user.email || ''
         );
         customerId = customer.id;
@@ -224,6 +270,7 @@ serve(async (req) => {
           .eq('user_id', user.id);
           
         if (updateError) {
+          console.error(`Failed to update customer ID: ${updateError.message}`);
           throw new Error(`Failed to update customer ID: ${updateError.message}`);
         }
       }
@@ -234,6 +281,7 @@ serve(async (req) => {
         customerId
       );
 
+      console.log('Returning subscription details to client');
       return new Response(
         JSON.stringify({ 
           key: RAZORPAY_KEY_ID,
@@ -247,6 +295,7 @@ serve(async (req) => {
       const { subscriptionId } = body;
       
       if (!subscriptionId) {
+        console.error('Missing subscription ID');
         return new Response(JSON.stringify({ error: 'Missing subscription ID' }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 400,
@@ -281,6 +330,7 @@ serve(async (req) => {
         .eq('user_id', user.id);
         
       if (updateError) {
+        console.error(`Failed to update subscription: ${updateError.message}`);
         throw new Error(`Failed to update subscription: ${updateError.message}`);
       }
       
@@ -299,6 +349,7 @@ serve(async (req) => {
         .single();
         
       if (subError) {
+        console.error(`Failed to get subscription: ${subError.message}`);
         throw new Error(`Failed to get subscription: ${subError.message}`);
       }
       
@@ -310,6 +361,7 @@ serve(async (req) => {
         .single();
         
       if (usageError) {
+        console.error(`Failed to get usage: ${usageError.message}`);
         throw new Error(`Failed to get usage: ${usageError.message}`);
       }
       
@@ -328,6 +380,7 @@ serve(async (req) => {
     }
     
     else {
+      console.error(`Invalid action: ${action}`);
       return new Response(JSON.stringify({ error: 'Invalid action' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,

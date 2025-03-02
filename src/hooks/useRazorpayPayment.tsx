@@ -21,7 +21,15 @@ export const useRazorpayPayment = ({ onProcessingChange }: UseRazorpayPaymentPro
   const { user } = useAuth();
 
   useEffect(() => {
+    // Check if Razorpay is already loaded
+    if (window.Razorpay) {
+      console.log("✅ Razorpay already available in window object");
+      setRazorpayLoaded(true);
+      return;
+    }
+
     // Add Razorpay script
+    console.log("🔄 Loading Razorpay script...");
     const script = document.createElement('script');
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
     script.async = true;
@@ -45,50 +53,54 @@ export const useRazorpayPayment = ({ onProcessingChange }: UseRazorpayPaymentPro
 
   const handleUpgrade = async (planId: string) => {
     try {
-      if (!razorpayLoaded) {
-        console.error('Razorpay SDK not loaded yet');
+      if (!window.Razorpay) {
+        console.error('❌ Razorpay SDK not loaded yet');
         toast.error('Payment service is not ready. Please try again in a moment.');
         return;
       }
 
+      console.log('🔄 Initiating payment process for plan:', planId);
       onProcessingChange(true);
       
       // Create subscription on server
-      const { key, subscription } = await createSubscription(planId);
-      console.log('Subscription created:', subscription);
-      console.log('Razorpay key:', key);
+      const response = await createSubscription(planId);
       
-      if (!key || !subscription || !subscription.id) {
-        console.error('Invalid response from create subscription API');
+      if (!response || !response.key || !response.subscription || !response.subscription.id) {
+        console.error('❌ Invalid response from create subscription API:', response);
         toast.error('Failed to initiate payment process. Please try again later.');
         onProcessingChange(false);
         return;
       }
       
+      console.log('✅ Subscription created:', response.subscription);
+      console.log('✅ Razorpay key:', response.key);
+      
       // Initialize Razorpay with a proper try-catch
       try {
         const options = {
-          key,
-          subscription_id: subscription.id,
+          key: response.key,
+          subscription_id: response.subscription.id,
           name: 'CodeDebugAI',
           description: 'Subscription Payment',
           prefill: {
             email: user?.email || '',
+            name: user?.email?.split('@')[0] || 'User',
           },
           theme: {
             color: '#7c3aed',
           },
           modal: {
             ondismiss: function() {
+              console.log('❌ Payment modal dismissed by user');
               toast.error('Payment cancelled');
               onProcessingChange(false);
             },
           },
-          handler: async function(response: any) {
+          handler: async function(razorpayResponse: any) {
             try {
-              console.log('Payment successful, verifying...', response);
+              console.log('✅ Payment successful, verifying...', razorpayResponse);
               // Verify subscription
-              const result = await verifySubscription(subscription.id);
+              const result = await verifySubscription(response.subscription.id);
               
               if (result.success) {
                 toast.success(`Successfully upgraded to ${result.plan.replace('_', ' ')} plan!`);
@@ -97,7 +109,7 @@ export const useRazorpayPayment = ({ onProcessingChange }: UseRazorpayPaymentPro
                 toast.error('Failed to verify payment');
               }
             } catch (error) {
-              console.error('Verification failed:', error);
+              console.error('❌ Verification failed:', error);
               toast.error('Failed to verify payment');
             } finally {
               onProcessingChange(false);
@@ -109,12 +121,12 @@ export const useRazorpayPayment = ({ onProcessingChange }: UseRazorpayPaymentPro
         const razor = new window.Razorpay(options);
         razor.open();
       } catch (error) {
-        console.error('Failed to initialize Razorpay:', error);
+        console.error('❌ Failed to initialize Razorpay:', error);
         toast.error('Payment service initialization failed. Please try again later.');
         onProcessingChange(false);
       }
     } catch (error) {
-      console.error('Failed to initiate upgrade:', error);
+      console.error('❌ Failed to initiate upgrade:', error);
       toast.error('Failed to initiate payment process');
       onProcessingChange(false);
     }

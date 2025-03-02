@@ -15,7 +15,7 @@ const Upgrade: React.FC = () => {
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
   
-  // Use our new custom hook
+  // Use our improved custom hook
   const { handleUpgrade, razorpayLoaded } = useRazorpayPayment({
     onProcessingChange: setIsProcessing
   });
@@ -32,9 +32,10 @@ const Upgrade: React.FC = () => {
       try {
         setIsLoading(true);
         const availablePlans = await getSubscriptionPlans();
+        console.log('📋 Available plans:', availablePlans);
         setPlans(availablePlans);
       } catch (error) {
-        console.error('Failed to fetch plans:', error);
+        console.error('❌ Failed to fetch plans:', error);
         toast.error('Failed to load subscription plans');
       } finally {
         setIsLoading(false);
@@ -87,6 +88,7 @@ const Upgrade: React.FC = () => {
             <SubscriptionPlans 
               isProcessing={isProcessing} 
               onUpgrade={handleUpgrade} 
+              isRazorpayLoaded={razorpayLoaded}
             />
           )}
         </div>

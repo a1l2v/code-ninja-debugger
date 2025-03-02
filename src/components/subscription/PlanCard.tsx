@@ -1,26 +1,27 @@
 
 import React from 'react';
-import { CheckCircle, Crown, Star } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Button } from '../ui/button';
+import { CheckCircle } from 'lucide-react';
+import { cn } from '../../lib/utils';
 
 export interface PlanFeature {
   text: string;
+  included?: boolean;
 }
 
-export interface PlanCardProps {
+interface PlanCardProps {
   title: string;
   price: number;
   features: PlanFeature[];
   buttonText: string;
-  buttonVariant?: 'default' | 'outline';
-  onClick?: () => void;
-  icon?: React.ReactNode;
-  badge?: string;
+  buttonVariant?: 'default' | 'outline' | 'secondary';
   isCurrentPlan?: boolean;
-  isProcessing?: boolean;
   isPopular?: boolean;
+  isProcessing?: boolean;
+  isDisabled?: boolean;
+  badge?: string;
+  icon?: React.ReactNode;
+  onClick?: () => void;
 }
 
 const PlanCard: React.FC<PlanCardProps> = ({
@@ -29,55 +30,70 @@ const PlanCard: React.FC<PlanCardProps> = ({
   features,
   buttonText,
   buttonVariant = 'default',
-  onClick,
-  icon,
-  badge,
   isCurrentPlan = false,
-  isProcessing = false,
   isPopular = false,
+  isProcessing = false,
+  isDisabled = false,
+  badge,
+  icon,
+  onClick,
 }) => {
   return (
-    <Card className={`${isPopular ? 'border-primary/50 shadow-md' : isCurrentPlan ? 'border-primary/20' : ''} relative overflow-hidden`}>
-      {badge && (
-        <div className="absolute top-0 right-0 m-2">
-          <Badge className="bg-primary">
-            <Star className="h-3 w-3 mr-1 fill-primary-foreground" />
-            {badge}
-          </Badge>
-        </div>
+    <div
+      className={cn(
+        'flex flex-col h-full rounded-lg border p-6 transition-all',
+        isPopular ? 'border-primary shadow-md' : 'border-border',
       )}
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          {icon}
-          {title}
-        </CardTitle>
-        <CardDescription>
-          <div className="text-2xl font-bold">
-            ₹{price} <span className="text-sm font-normal">/ month</span>
-          </div>
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ul className="space-y-2 mb-6">
-          {features.map((feature, index) => (
-            <li key={index} className="flex items-center gap-2 text-sm">
-              <CheckCircle className="h-4 w-4 text-green-500" />
-              <span>{feature.text}</span>
-            </li>
-          ))}
-        </ul>
-      </CardContent>
-      <CardFooter>
-        <Button 
-          variant={buttonVariant} 
-          className="w-full"
-          onClick={onClick}
-          disabled={isCurrentPlan || isProcessing}
-        >
-          {isProcessing ? 'Processing...' : isCurrentPlan ? 'Current Plan' : buttonText}
-        </Button>
-      </CardFooter>
-    </Card>
+    >
+      {/* Card Header */}
+      <div className="mb-5 space-y-2">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-semibold">{title}</h3>
+          {icon && <span>{icon}</span>}
+        </div>
+        
+        {badge && (
+          <span className="inline-block rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+            {badge}
+          </span>
+        )}
+        
+        <div className="flex items-baseline text-2xl font-semibold md:text-3xl">
+          ₹{price}
+          <span className="ml-1 text-sm font-normal text-muted-foreground">
+            {price > 0 ? '/month' : ''}
+          </span>
+        </div>
+      </div>
+      
+      {/* Features List */}
+      <ul className="mb-6 space-y-2 flex-grow">
+        {features.map((feature, i) => (
+          <li key={i} className="flex items-center gap-2">
+            <CheckCircle className="h-4 w-4 text-green-500" />
+            <span className="text-sm">{feature.text}</span>
+          </li>
+        ))}
+      </ul>
+      
+      {/* Action Button */}
+      <Button
+        variant={buttonVariant as any}
+        className={cn(
+          'mt-auto w-full',
+          isPopular && buttonVariant === 'default' && 'bg-primary text-primary-foreground hover:bg-primary/90'
+        )}
+        disabled={isCurrentPlan || isProcessing || isDisabled}
+        onClick={onClick}
+      >
+        {isProcessing ? (
+          <>
+            <span className="animate-spin mr-2">◌</span>
+            Processing...
+          </>
+        ) : buttonText}
+      </Button>
+    </div>
   );
 };
 

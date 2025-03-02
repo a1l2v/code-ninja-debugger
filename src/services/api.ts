@@ -1,4 +1,3 @@
-
 // API service for code debugging with Nebius AI's Qwen2.5-Coder-32B-Instruct model
 
 import { supabase } from '../integrations/supabase/client';
@@ -165,15 +164,25 @@ export const getSubscriptionPlans = async (): Promise<SubscriptionPlan[]> => {
 
 export const createSubscription = async (planId: string): Promise<{ key: string; subscription: any }> => {
   try {
+    console.log('🔄 Creating subscription for plan:', planId);
     const { data, error } = await supabase.functions.invoke('subscription', {
       body: { action: 'create_subscription', planId }
     });
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error('❌ Supabase function error:', error);
+      throw new Error(error.message);
+    }
     
+    if (!data || !data.key || !data.subscription) {
+      console.error('❌ Invalid response data:', data);
+      throw new Error('Invalid response from server');
+    }
+    
+    console.log('✅ Subscription created successfully:', data);
     return data;
   } catch (error) {
-    console.error('Failed to create subscription:', error);
+    console.error('❌ Failed to create subscription:', error);
     throw new Error('Failed to create subscription');
   }
 };
