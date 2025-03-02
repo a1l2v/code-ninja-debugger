@@ -13,6 +13,7 @@ export interface DebugHistoryItem {
   result: string;
   created_at: string;
   title: string;
+  user_id: string;
 }
 
 export const debugCode = async (code: string): Promise<DebugResponse> => {
@@ -34,12 +35,20 @@ export const debugCode = async (code: string): Promise<DebugResponse> => {
 
 export const saveDebugHistory = async (code: string, result: string, title = 'Untitled Debug Session'): Promise<void> => {
   try {
+    // Get the current user's ID
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+    
     const { error } = await supabase
       .from('debug_history')
       .insert({
         code,
         result,
-        title
+        title,
+        user_id: user.id  // Add the user_id field
       });
     
     if (error) throw error;
