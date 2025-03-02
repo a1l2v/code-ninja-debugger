@@ -1,9 +1,9 @@
 
-import React, { useEffect, useState } from 'react';
-import { createSubscription, verifySubscription } from '../../services/api';
+import { useEffect, useState } from 'react';
+import { createSubscription, verifySubscription } from '../services/api';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 
 declare global {
   interface Window {
@@ -11,15 +11,11 @@ declare global {
   }
 }
 
-interface RazorpayPaymentProps {
+interface UseRazorpayPaymentProps {
   onProcessingChange: (isProcessing: boolean) => void;
-  isProcessing: boolean;
 }
 
-const RazorpayPayment: React.FC<RazorpayPaymentProps> = ({ 
-  onProcessingChange, 
-  isProcessing 
-}) => {
+export const useRazorpayPayment = ({ onProcessingChange }: UseRazorpayPaymentProps) => {
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -126,5 +122,3 @@ const RazorpayPayment: React.FC<RazorpayPaymentProps> = ({
 
   return { handleUpgrade, razorpayLoaded };
 };
-
-export default RazorpayPayment;

@@ -5,8 +5,8 @@ import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 import Navbar from '../components/Navbar';
 import SubscriptionPlans from '../components/subscription/SubscriptionPlans';
-import RazorpayPayment from '../components/subscription/RazorpayPayment';
 import { getSubscriptionPlans, SubscriptionPlan } from '../services/api';
+import { useRazorpayPayment } from '../hooks/useRazorpayPayment';
 
 const Upgrade: React.FC = () => {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
@@ -15,10 +15,9 @@ const Upgrade: React.FC = () => {
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
   
-  // Custom hook for Razorpay integration
-  const { handleUpgrade, razorpayLoaded } = RazorpayPayment({
-    onProcessingChange: setIsProcessing,
-    isProcessing
+  // Use our new custom hook
+  const { handleUpgrade, razorpayLoaded } = useRazorpayPayment({
+    onProcessingChange: setIsProcessing
   });
 
   // Redirect if not logged in
