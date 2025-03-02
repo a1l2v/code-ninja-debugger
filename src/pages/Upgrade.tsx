@@ -68,6 +68,22 @@ const Upgrade: React.FC = () => {
       
       // Create subscription on server
       const { key, subscription } = await createSubscription(planId);
+      console.log('Subscription created:', subscription);
+      console.log('Razorpay key:', key);
+      
+      // Wait for Razorpay to load
+      if (typeof window.Razorpay === 'undefined') {
+        console.log('Waiting for Razorpay to load...');
+        // Add a small delay to ensure the script is loaded
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      
+      if (typeof window.Razorpay !== 'function') {
+        console.error('Razorpay not loaded properly:', window.Razorpay);
+        toast.error('Payment service not available. Please try again later.');
+        setIsProcessing(false);
+        return;
+      }
       
       // Initialize Razorpay
       const razorpay = new window.Razorpay({
@@ -204,7 +220,7 @@ const Upgrade: React.FC = () => {
                   </CardTitle>
                   <CardDescription>
                     <div className="text-2xl font-bold">
-                      ₹999 <span className="text-sm font-normal">/ month</span>
+                      ₹99 <span className="text-sm font-normal">/ month</span>
                     </div>
                   </CardDescription>
                 </CardHeader>
@@ -248,7 +264,7 @@ const Upgrade: React.FC = () => {
                   </CardTitle>
                   <CardDescription>
                     <div className="text-2xl font-bold">
-                      ₹1499 <span className="text-sm font-normal">/ month</span>
+                      ₹149 <span className="text-sm font-normal">/ month</span>
                     </div>
                   </CardDescription>
                 </CardHeader>

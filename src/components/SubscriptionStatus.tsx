@@ -84,8 +84,8 @@ const SubscriptionStatus: React.FC = () => {
             {subscription.plan === 'free' 
               ? 'Limited to 5 debugs per day' 
               : subscription.plan === 'pro' 
-                ? 'Up to 200 debugs per month' 
-                : 'Unlimited debugs'}
+                ? 'Up to 200 debugs per month (₹99/month)' 
+                : 'Unlimited debugs (₹149/month)'}
           </p>
         </div>
         
