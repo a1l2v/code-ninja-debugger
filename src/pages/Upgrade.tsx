@@ -20,6 +20,7 @@ const Upgrade: React.FC = () => {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [razorpayLoaded, setRazorpayLoaded] = useState(false);
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
 
@@ -28,11 +29,21 @@ const Upgrade: React.FC = () => {
     const script = document.createElement('script');
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
     script.async = true;
+    script.onload = () => {
+      console.log("✅ Razorpay script loaded successfully.");
+      setRazorpayLoaded(true);
+    };
+    script.onerror = () => {
+      console.error("❌ Failed to load Razorpay script.");
+      toast.error("Payment service couldn't be loaded. Please try again later.");
+    };
     document.body.appendChild(script);
 
     // Cleanup
     return () => {
-      document.body.removeChild(script);
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
     };
   }, []);
 
@@ -64,6 +75,12 @@ const Upgrade: React.FC = () => {
 
   const handleUpgrade = async (planId: string) => {
     try {
+      if (!razorpayLoaded) {
+        console.error('Razorpay SDK not loaded yet');
+        toast.error('Payment service is not ready. Please try again in a moment.');
+        return;
+      }
+
       setIsProcessing(true);
       
       // Create subscription on server
@@ -71,59 +88,61 @@ const Upgrade: React.FC = () => {
       console.log('Subscription created:', subscription);
       console.log('Razorpay key:', key);
       
-      // Wait for Razorpay to load
-      if (typeof window.Razorpay === 'undefined') {
-        console.log('Waiting for Razorpay to load...');
-        // Add a small delay to ensure the script is loaded
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-      
-      if (typeof window.Razorpay !== 'function') {
-        console.error('Razorpay not loaded properly:', window.Razorpay);
-        toast.error('Payment service not available. Please try again later.');
+      if (!key || !subscription || !subscription.id) {
+        console.error('Invalid response from create subscription API');
+        toast.error('Failed to initiate payment process. Please try again later.');
         setIsProcessing(false);
         return;
       }
       
-      // Initialize Razorpay
-      const razorpay = new window.Razorpay({
-        key,
-        subscription_id: subscription.id,
-        name: 'CodeDebugAI',
-        description: 'Subscription Payment',
-        prefill: {
-          email: user?.email || '',
-        },
-        theme: {
-          color: '#7c3aed',
-        },
-        modal: {
-          ondismiss: function() {
-            toast.error('Payment cancelled');
-            setIsProcessing(false);
+      // Initialize Razorpay with a proper try-catch
+      try {
+        const options = {
+          key,
+          subscription_id: subscription.id,
+          name: 'CodeDebugAI',
+          description: 'Subscription Payment',
+          prefill: {
+            email: user?.email || '',
           },
-        },
-        handler: async function(response: any) {
-          try {
-            // Verify subscription
-            const result = await verifySubscription(subscription.id);
-            
-            if (result.success) {
-              toast.success(`Successfully upgraded to ${result.plan.replace('_', ' ')} plan!`);
-              navigate('/dashboard');
-            } else {
+          theme: {
+            color: '#7c3aed',
+          },
+          modal: {
+            ondismiss: function() {
+              toast.error('Payment cancelled');
+              setIsProcessing(false);
+            },
+          },
+          handler: async function(response: any) {
+            try {
+              console.log('Payment successful, verifying...', response);
+              // Verify subscription
+              const result = await verifySubscription(subscription.id);
+              
+              if (result.success) {
+                toast.success(`Successfully upgraded to ${result.plan.replace('_', ' ')} plan!`);
+                navigate('/dashboard');
+              } else {
+                toast.error('Failed to verify payment');
+              }
+            } catch (error) {
+              console.error('Verification failed:', error);
               toast.error('Failed to verify payment');
+            } finally {
+              setIsProcessing(false);
             }
-          } catch (error) {
-            console.error('Verification failed:', error);
-            toast.error('Failed to verify payment');
-          } finally {
-            setIsProcessing(false);
           }
-        }
-      });
-      
-      razorpay.open();
+        };
+        
+        console.log('🛠 Initializing Razorpay Checkout...');
+        const razor = new window.Razorpay(options);
+        razor.open();
+      } catch (error) {
+        console.error('Failed to initialize Razorpay:', error);
+        toast.error('Payment service initialization failed. Please try again later.');
+        setIsProcessing(false);
+      }
     } catch (error) {
       console.error('Failed to initiate upgrade:', error);
       toast.error('Failed to initiate payment process');
@@ -248,7 +267,7 @@ const Upgrade: React.FC = () => {
                   <Button 
                     className="w-full" 
                     onClick={() => handleUpgrade('pro')}
-                    disabled={isProcessing}
+                    disabled={isProcessing || !razorpayLoaded}
                   >
                     {isProcessing ? 'Processing...' : 'Upgrade to Pro'}
                   </Button>
@@ -297,7 +316,7 @@ const Upgrade: React.FC = () => {
                     variant="outline" 
                     className="w-full"
                     onClick={() => handleUpgrade('pro_plus')}
-                    disabled={isProcessing}
+                    disabled={isProcessing || !razorpayLoaded}
                   >
                     {isProcessing ? 'Processing...' : 'Upgrade to Pro Plus'}
                   </Button>
