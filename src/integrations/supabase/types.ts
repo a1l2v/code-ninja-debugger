@@ -36,6 +36,30 @@ export type Database = {
         }
         Relationships: []
       }
+      debug_usage: {
+        Row: {
+          debug_count: number
+          id: string
+          last_reset_date: string
+          month_start_date: string
+          user_id: string
+        }
+        Insert: {
+          debug_count?: number
+          id?: string
+          last_reset_date?: string
+          month_start_date?: string
+          user_id: string
+        }
+        Update: {
+          debug_count?: number
+          id?: string
+          last_reset_date?: string
+          month_start_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -57,15 +81,59 @@ export type Database = {
         }
         Relationships: []
       }
+      user_subscriptions: {
+        Row: {
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          plan: Database["public"]["Enums"]["subscription_plan"]
+          razorpay_customer_id: string | null
+          razorpay_subscription_id: string | null
+          starts_at: string
+          user_id: string
+        }
+        Insert: {
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          plan?: Database["public"]["Enums"]["subscription_plan"]
+          razorpay_customer_id?: string | null
+          razorpay_subscription_id?: string | null
+          starts_at?: string
+          user_id: string
+        }
+        Update: {
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          plan?: Database["public"]["Enums"]["subscription_plan"]
+          razorpay_customer_id?: string | null
+          razorpay_subscription_id?: string | null
+          starts_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      can_debug: {
+        Args: {
+          user_uuid: string
+        }
+        Returns: boolean
+      }
+      increment_debug_count: {
+        Args: {
+          user_uuid: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
-      [_ in never]: never
+      subscription_plan: "free" | "pro" | "pro_plus"
     }
     CompositeTypes: {
       [_ in never]: never

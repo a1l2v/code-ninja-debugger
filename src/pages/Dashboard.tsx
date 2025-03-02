@@ -4,13 +4,14 @@ import Navbar from '../components/Navbar';
 import CodeEditor from '../components/CodeEditor';
 import DebugResults from '../components/DebugResults';
 import DebugHistory from '../components/DebugHistory';
+import SubscriptionStatus from '../components/SubscriptionStatus';
 import { useAuth } from '../contexts/AuthContext';
 import { debugCode, saveDebugHistory, getDebugHistory, DebugHistoryItem } from '../services/api';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Code, GitBranch, History, Sparkles } from 'lucide-react';
+import { Code, History, Sparkles } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 const Dashboard: React.FC = () => {
   const [results, setResults] = useState<string | null>(null);
@@ -112,6 +113,9 @@ const Dashboard: React.FC = () => {
             </p>
           </div>
           
+          {/* Subscription Status */}
+          <SubscriptionStatus />
+          
           <Tabs defaultValue="editor" value={activeTab} onValueChange={setActiveTab}>
             <TabsList>
               <TabsTrigger value="editor">
@@ -150,7 +154,6 @@ const Dashboard: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-2">
-            <GitBranch className="h-4 w-4 text-muted-foreground" />
             <span className="text-xs text-muted-foreground">
               Powered by Qwen2.5-Coder-32B-Instruct on Nebius AI
             </span>
